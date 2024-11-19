@@ -1,0 +1,48 @@
+name: Sync Updates
+
+on:
+  schedule:
+    - cron: "0 0 * * 0" # Runs weekly at midnight UTC on Sundays
+  workflow_dispatch: # Allows you to manually trigger the workflow
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+    # Checkout your repository
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    # Configure Git
+    - name: Set up Git
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+
+    # Add remotes for QMK and jonylee
+    - name: Add upstream remotes
+      run: |
+        git remote add upstream https://github.com/qmk/qmk_firmware.git
+        git remote add jonylee https://github.com/jonylee1986/qmk_firmware_master.git
+        git fetch upstream
+        git fetch jonylee
+
+    # Create or update a branch with updates from QMK and jonylee
+    - name: Sync updates
+      run: |
+        git checkout master
+        git pull upstream master --rebase
+        git checkout -b sync-updates || git checkout sync-updates
+        git merge upstream/master
+        git merge jonylee/mchose_gx87
+        git push origin sync-updates --force-with-lease
+
+    # Optional: Notify of conflicts
+    - name: Check for merge conflicts
+      run: |
+        if git ls-files -u | grep -q "^"; then
+          echo "::error::Merge conflicts detected. Please resolve them manually."
+          exit 1
+        fi
+
